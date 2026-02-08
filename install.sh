@@ -288,7 +288,7 @@ echo "   RAM Container: ${CONTAINER_RAM} MB (- 512MB reserved)"
 # JALANKAN DENGAN --net=host
 echo ">>> [START] Menjalankan Android 8 (Host Mode)..."
 
-sudo docker run -itd \
+sudo docker run -d \
     --net=host \
     --cpus="$CONTAINER_CPU" \
     --memory="${CONTAINER_RAM}m" \

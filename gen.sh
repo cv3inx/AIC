@@ -338,7 +338,7 @@ echo "   RAM Container: ${CONTAINER_RAM} MB (- 512MB reserved)"
 
 # 8. JALANKAN CONTAINER
 echo ">>> [STARTING] Menjalankan Android 11..."
-sudo docker run -itd \
+sudo docker run -d \
     --cpus="$CONTAINER_CPU" \
     --memory="${CONTAINER_RAM}m" \
     --memory-swap="-1" \

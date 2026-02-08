@@ -411,7 +411,7 @@ echo -e "   RAM Container: ${BOLD}${CONTAINER_RAM} MB (- 512MB reserved)${NC}"
 echo -e "${YELLOW}>>> [STARTING] Android 11...${NC}"
 # PERHATIKAN: Variabel $REAL_MODEL tidak pakai tanda kutip miring \"...\" lagi.
 # Ini agar hasil di HP bersih (contoh: NE2213) bukan ("NE2213").
-sudo docker run -itd --cpus="$CONTAINER_CPU" --memory="${CONTAINER_RAM}m" --memory-swap="-1" --privileged --restart=always \
+sudo docker run -d --cpus="$CONTAINER_CPU" --memory="${CONTAINER_RAM}m" --memory-swap="-1" --privileged --restart=always \
     -v ~/data_11:/data -p 5555:5555 --name android_11 \
     redroid/redroid:11.0.0-latest \
     androidboot.redroid_width=720 androidboot.redroid_height=1280 androidboot.redroid_dpi=320 \
