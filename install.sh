@@ -133,7 +133,111 @@ sudo rm -rf ~/data_8 && mkdir -p ~/data_8
 DEVICES=("realme|realme|RMX3782|RMX3782|realme/RMX3782/RMX3782:13/TP1A.220905.001/1693393955:user/release-keys")
 IFS='|' read -r BRAND MANUF MODEL DEV_NAME FINGERPRINT <<< "${DEVICES[0]}"
 
-GEN_IMEI=$(shuf -i 860000000000000-869999999999999 -n 1)
+# ==========================================================
+# REAL DEVICE TAC DATABASE (8 digit pertama IMEI)
+# Format: TAC|Brand|Model
+# ==========================================================
+TAC_DATABASE=(
+    # Samsung Galaxy S Series
+    "35332510|Samsung|Galaxy S23 Ultra"
+    "35332511|Samsung|Galaxy S23+"
+    "35332512|Samsung|Galaxy S23"
+    "35290611|Samsung|Galaxy S22 Ultra"
+    "35290612|Samsung|Galaxy S22+"
+    "35290613|Samsung|Galaxy S22"
+    "35260010|Samsung|Galaxy S21 Ultra"
+    "35260011|Samsung|Galaxy S21+"
+    "35260012|Samsung|Galaxy S21"
+    # Samsung Galaxy A Series
+    "35456710|Samsung|Galaxy A54"
+    "35456711|Samsung|Galaxy A34"
+    "35433010|Samsung|Galaxy A53"
+    "35433011|Samsung|Galaxy A33"
+    "35350410|Samsung|Galaxy A52"
+    # Xiaomi
+    "86769804|Xiaomi|13 Pro"
+    "86769805|Xiaomi|13"
+    "86754303|Xiaomi|12 Pro"
+    "86754304|Xiaomi|12"
+    "86738902|Xiaomi|11T Pro"
+    "86738903|Xiaomi|11T"
+    "86720001|Xiaomi|Mi 11"
+    # Redmi
+    "86769901|Redmi|Note 12 Pro"
+    "86769902|Redmi|Note 12"
+    "86754401|Redmi|Note 11 Pro"
+    "86754402|Redmi|Note 11"
+    "86738801|Redmi|Note 10 Pro"
+    "86738802|Redmi|Note 10"
+    # POCO
+    "86769801|POCO|F5 Pro"
+    "86769802|POCO|F5"
+    "86754201|POCO|X4 Pro"
+    "86738701|POCO|X3 Pro"
+    # OPPO
+    "86467502|OPPO|Reno 9 Pro"
+    "86467503|OPPO|Reno 8 Pro"
+    "86452101|OPPO|Reno 7"
+    "86436701|OPPO|Reno 6"
+    "86421301|OPPO|Find X5 Pro"
+    # Realme
+    "86467601|Realme|GT 3"
+    "86467602|Realme|GT Neo 5"
+    "86452201|Realme|GT 2 Pro"
+    "86436801|Realme|9 Pro+"
+    "86421401|Realme|8 Pro"
+    # Vivo
+    "86467701|Vivo|X90 Pro"
+    "86467702|Vivo|X80 Pro"
+    "86452301|Vivo|V27 Pro"
+    "86436901|Vivo|V25 Pro"
+    # Infinix
+    "35890001|Infinix|Note 30"
+    "35890002|Infinix|Hot 30"
+    # OnePlus
+    "86857001|OnePlus|11"
+    "86857002|OnePlus|10 Pro"
+    "86842501|OnePlus|9 Pro"
+)
+
+# Fungsi Luhn checksum untuk IMEI valid
+calculate_luhn() {
+    local imei_14="$1"
+    local sum=0
+    local digit
+    for i in {0..13}; do
+        digit=${imei_14:$i:1}
+        if [ $((i % 2)) -eq 1 ]; then
+            digit=$((digit * 2))
+            if [ $digit -gt 9 ]; then
+                digit=$((digit - 9))
+            fi
+        fi
+        sum=$((sum + digit))
+    done
+    echo $(( (10 - (sum % 10)) % 10 ))
+}
+
+# Pilih TAC random dari database
+RANDOM_TAC_INDEX=$((RANDOM % ${#TAC_DATABASE[@]}))
+TAC_ENTRY="${TAC_DATABASE[$RANDOM_TAC_INDEX]}"
+IFS='|' read -r SELECTED_TAC TAC_BRAND TAC_MODEL <<< "$TAC_ENTRY"
+
+# Generate 6 digit random untuk Serial Number
+SERIAL=$(shuf -i 100000-999999 -n 1)
+
+# Gabungkan TAC + Serial (14 digit)
+IMEI_14="${SELECTED_TAC}${SERIAL}"
+
+# Hitung checksum Luhn
+CHECKSUM=$(calculate_luhn "$IMEI_14")
+
+# IMEI final 15 digit
+GEN_IMEI="${IMEI_14}${CHECKSUM}"
+
+echo ">>> [IMEI] Generated from: $TAC_BRAND $TAC_MODEL"
+echo ">>> [IMEI] TAC: $SELECTED_TAC | IMEI: $GEN_IMEI"
+
 GEN_PHONE="+628$(shuf -i 100000000-999999999 -n 1)"
 
 # JALANKAN DENGAN --net=host
