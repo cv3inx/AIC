@@ -384,11 +384,34 @@ echo -e "Phone        : ${BOLD}$GEN_PHONE${NC}"
 echo -e "IP           : ${BOLD}$MY_IP${NC}"
 echo -e "${BLUE}----------------------------------------------${NC}"
 
+# ==========================================================
+# AUTO DETECT RAM & CPU
+# ==========================================================
+echo -e "${YELLOW}>>> [HARDWARE] Mendeteksi spesifikasi server...${NC}"
+
+# Detect CPU cores
+TOTAL_CPU=$(nproc 2>/dev/null || grep -c processor /proc/cpuinfo 2>/dev/null || echo 2)
+# Gunakan 75% CPU untuk container (minimal 1)
+CONTAINER_CPU=$((TOTAL_CPU * 75 / 100))
+[ "$CONTAINER_CPU" -lt 1 ] && CONTAINER_CPU=1
+
+# Detect RAM (dalam MB)
+TOTAL_RAM_KB=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}' || echo 2097152)
+TOTAL_RAM_MB=$((TOTAL_RAM_KB / 1024))
+# Sisakan 512MB untuk OS, gunakan sisanya untuk container
+CONTAINER_RAM=$((TOTAL_RAM_MB - 512))
+[ "$CONTAINER_RAM" -lt 512 ] && CONTAINER_RAM=512
+
+echo -e "   CPU Total    : ${BOLD}${TOTAL_CPU} cores${NC}"
+echo -e "   CPU Container: ${BOLD}${CONTAINER_CPU} cores (75%)${NC}"
+echo -e "   RAM Total    : ${BOLD}${TOTAL_RAM_MB} MB${NC}"
+echo -e "   RAM Container: ${BOLD}${CONTAINER_RAM} MB (- 512MB reserved)${NC}"
+
 # 6. RUN CONTAINER (NO QUOTES FIX)
 echo -e "${YELLOW}>>> [STARTING] Android 11...${NC}"
 # PERHATIKAN: Variabel $REAL_MODEL tidak pakai tanda kutip miring \"...\" lagi.
 # Ini agar hasil di HP bersih (contoh: NE2213) bukan ("NE2213").
-sudo docker run -itd --memory="1400m" --memory-swap="-1" --privileged --restart=always \
+sudo docker run -itd --cpus="$CONTAINER_CPU" --memory="${CONTAINER_RAM}m" --memory-swap="-1" --privileged --restart=always \
     -v ~/data_11:/data -p 5555:5555 --name android_11 \
     redroid/redroid:11.0.0-latest \
     androidboot.redroid_width=720 androidboot.redroid_height=1280 androidboot.redroid_dpi=320 \

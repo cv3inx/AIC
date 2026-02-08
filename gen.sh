@@ -313,10 +313,34 @@ echo "   + Data reset selesai."
 echo ">>> [DOWNLOAD] Memastikan Image Redroid tersedia..."
 sudo docker pull redroid/redroid:11.0.0-latest
 
+# ==========================================================
+# AUTO DETECT RAM & CPU
+# ==========================================================
+echo ">>> [HARDWARE] Mendeteksi spesifikasi server..."
+
+# Detect CPU cores
+TOTAL_CPU=$(nproc 2>/dev/null || grep -c processor /proc/cpuinfo 2>/dev/null || echo 2)
+# Gunakan 75% CPU untuk container (minimal 1)
+CONTAINER_CPU=$((TOTAL_CPU * 75 / 100))
+[ "$CONTAINER_CPU" -lt 1 ] && CONTAINER_CPU=1
+
+# Detect RAM (dalam MB)
+TOTAL_RAM_KB=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}' || echo 2097152)
+TOTAL_RAM_MB=$((TOTAL_RAM_KB / 1024))
+# Sisakan 512MB untuk OS, gunakan sisanya untuk container (minimal 512MB)
+CONTAINER_RAM=$((TOTAL_RAM_MB - 512))
+[ "$CONTAINER_RAM" -lt 512 ] && CONTAINER_RAM=512
+
+echo "   CPU Total    : ${TOTAL_CPU} cores"
+echo "   CPU Container: ${CONTAINER_CPU} cores (75%)"
+echo "   RAM Total    : ${TOTAL_RAM_MB} MB"
+echo "   RAM Container: ${CONTAINER_RAM} MB (- 512MB reserved)"
+
 # 8. JALANKAN CONTAINER
 echo ">>> [STARTING] Menjalankan Android 11..."
 sudo docker run -itd \
-    --memory="1200m" \
+    --cpus="$CONTAINER_CPU" \
+    --memory="${CONTAINER_RAM}m" \
     --memory-swap="-1" \
     --privileged \
     --restart=always \
