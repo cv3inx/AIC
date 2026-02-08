@@ -11,16 +11,89 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # ==========================================================
-# 1. SETUP INSTALL VPS FRESH (DOCKER & DEPENDENCIES)
+# 1. SMART DEPENDENCY CHECK & INSTALL
 # ==========================================================
-echo ">>> [SETUP] Update & Install Dependencies..."
-apt-get update -y
-# Install Docker & ADB jika belum ada
-apt-get install -y docker.io android-tools-adb curl kmod
+echo ">>> [CHECK] Memeriksa dependencies..."
+
+# Fungsi cek command
+check_cmd() {
+    command -v "$1" &> /dev/null
+}
+
+NEED_UPDATE=false
+MISSING_PKGS=()
+
+# Cek Docker
+if check_cmd docker; then
+    echo "   ✓ Docker sudah terinstall ($(docker --version | cut -d' ' -f3 | tr -d ','))"
+else
+    echo "   ✗ Docker belum terinstall"
+    MISSING_PKGS+=("docker.io")
+    NEED_UPDATE=true
+fi
+
+# Cek ADB  
+if check_cmd adb; then
+    echo "   ✓ ADB sudah terinstall ($(adb version | head -1 | cut -d' ' -f5))"
+else
+    echo "   ✗ ADB belum terinstall"
+    MISSING_PKGS+=("android-tools-adb")
+    NEED_UPDATE=true
+fi
+
+# Cek curl
+if check_cmd curl; then
+    echo "   ✓ Curl sudah terinstall"
+else
+    echo "   ✗ Curl belum terinstall"
+    MISSING_PKGS+=("curl")
+    NEED_UPDATE=true
+fi
+
+# Cek kmod (modprobe)
+if check_cmd modprobe; then
+    echo "   ✓ Kmod sudah terinstall"
+else
+    echo "   ✗ Kmod belum terinstall"
+    MISSING_PKGS+=("kmod")
+    NEED_UPDATE=true
+fi
+
+# Cek shuf (coreutils)
+if check_cmd shuf; then
+    echo "   ✓ Coreutils sudah terinstall"
+else
+    echo "   ✗ Coreutils belum terinstall"
+    MISSING_PKGS+=("coreutils")
+    NEED_UPDATE=true
+fi
+
+# Install jika ada yang missing
+if [ "$NEED_UPDATE" = true ]; then
+    echo ""
+    echo ">>> [INSTALL] Menginstall: ${MISSING_PKGS[*]}..."
+    apt-get update -y > /dev/null 2>&1
+    apt-get install -y "${MISSING_PKGS[@]}" > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo ">>> [OK] Dependencies berhasil diinstall!"
+    else
+        echo ">>> [ERROR] Gagal install dependencies!"
+        exit 1
+    fi
+else
+    echo ""
+    echo ">>> [SKIP] Semua dependencies sudah terinstall!"
+fi
 
 # Pastikan Docker Service jalan
-systemctl start docker
-systemctl enable docker
+if ! systemctl is-active --quiet docker; then
+    echo ">>> [START] Menjalankan Docker service..."
+    systemctl start docker
+    systemctl enable docker > /dev/null 2>&1
+else
+    echo ">>> [OK] Docker service sudah berjalan"
+fi
+
 
 # ==========================================================
 # 2. SETUP KERNEL (WAJIB UNTUK REDROID)
