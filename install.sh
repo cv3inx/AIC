@@ -174,14 +174,61 @@ else
     exit 1
 fi
 
-echo ">>> [WAIT] Menunggu booting 10 detik..."
-sleep 10
+# ==========================================================
+# 4. SMART BOOT DETECTION
+# ==========================================================
+echo ">>> [BOOT] Mendeteksi status booting Android..."
 
-# KONEKSI ADB (DARI DALAM)
-echo ">>> [SETUP] Mengatur sinyal..."
+MAX_WAIT=120  # Maksimal tunggu 120 detik
+WAIT_COUNT=0
+BOOT_COMPLETE=false
+
+while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
+    # Cek apakah container running
+    CONTAINER_STATUS=$(docker inspect -f '{{.State.Running}}' android_8 2>/dev/null)
+    if [ "$CONTAINER_STATUS" != "true" ]; then
+        echo "   ⏳ Container belum running... ($WAIT_COUNT detik)"
+        sleep 2
+        WAIT_COUNT=$((WAIT_COUNT + 2))
+        continue
+    fi
+    
+    # Cek boot_completed property
+    BOOT_STATUS=$(docker exec android_8 getprop sys.boot_completed 2>/dev/null)
+    if [ "$BOOT_STATUS" == "1" ]; then
+        BOOT_COMPLETE=true
+        echo ""
+        echo ">>> [OK] ✓ Android sudah selesai booting! (${WAIT_COUNT} detik)"
+        break
+    fi
+    
+    # Progress indicator
+    if [ $((WAIT_COUNT % 10)) -eq 0 ]; then
+        echo "   ⏳ Menunggu boot... ($WAIT_COUNT detik)"
+    fi
+    
+    sleep 2
+    WAIT_COUNT=$((WAIT_COUNT + 2))
+done
+
+# Cek timeout
+if [ "$BOOT_COMPLETE" != true ]; then
+    echo ""
+    echo ">>> [WARNING] Boot timeout setelah ${MAX_WAIT} detik"
+    echo ">>> [INFO] Melanjutkan dengan setup (mungkin perlu waktu tambahan)..."
+fi
+
+# Tunggu sebentar untuk stabilitas
+sleep 3
+
+# SETUP SINYAL (DARI DALAM CONTAINER)
+echo ">>> [SETUP] Mengatur sinyal operator..."
 docker exec android_8 setprop gsm.sim.operator.alpha "Telkomsel"
 docker exec android_8 setprop gsm.sim.operator.numeric "51010"
+docker exec android_8 setprop gsm.sim.state "READY"
 docker exec android_8 setprop gsm.sim.msisdn "$GEN_PHONE"
+docker exec android_8 setprop gsm.current.phone-number "$GEN_PHONE"
+docker exec android_8 setprop line1.number "$GEN_PHONE"
 
 echo "=============================================="
 echo ">>> SIAP DIHUBUNGKAN!"
