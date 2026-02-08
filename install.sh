@@ -137,7 +137,11 @@ IFS='|' read -r BRAND MANUF MODEL DEV_NAME FINGERPRINT <<< "${DEVICES[0]}"
 # REAL DEVICE TAC - ONLINE SCRAPING + FALLBACK
 # ==========================================================
 TAC_CACHE="/tmp/tac_database.txt"
-TAC_URL="https://tacdb.osmocom.org/export/tacdb.csv"
+# Multiple sources untuk reliability
+TAC_URLS=(
+    "https://raw.githubusercontent.com/VTSTech/IMEIDB/main/imeidb.csv"
+    "https://raw.githubusercontent.com/AzeemIdr662/IMEI-TAC-DATABASE/main/TAC.csv"
+)
 
 # Fungsi Luhn checksum untuk IMEI valid
 calculate_luhn() {
@@ -169,25 +173,34 @@ fi
 
 # Download jika cache tidak valid
 if [ "$CACHE_VALID" != true ]; then
-    echo ">>> [TAC] Downloading TAC database dari Osmocom..."
-    if curl -sL "$TAC_URL" -o /tmp/tacdb_raw.csv 2>/dev/null; then
-        # Parse CSV: format = TAC,Manufacturer,Model,Comment
-        # Filter hanya brand populer dan simpan format: TAC|Brand|Model
-        grep -iE "samsung|xiaomi|redmi|poco|oppo|realme|vivo|oneplus|huawei|infinix|tecno|asus|sony|motorola|nokia|google|pixel" /tmp/tacdb_raw.csv | \
-        awk -F',' '{if(length($1)==8) print $1"|"$2"|"$3}' | \
-        head -500 > "$TAC_CACHE"
-        
-        TAC_COUNT=$(wc -l < "$TAC_CACHE")
-        if [ "$TAC_COUNT" -gt 10 ]; then
-            echo ">>> [TAC] ✓ Downloaded $TAC_COUNT real device TACs!"
-        else
-            echo ">>> [TAC] Download gagal, menggunakan built-in database..."
-            CACHE_VALID=false
+    echo ">>> [TAC] Downloading TAC database dari GitHub..."
+    DOWNLOAD_SUCCESS=false
+    
+    for TAC_URL in "${TAC_URLS[@]}"; do
+        echo "   → Mencoba: $(basename "$TAC_URL")..."
+        if curl -sL --connect-timeout 10 "$TAC_URL" -o /tmp/tacdb_raw.csv 2>/dev/null; then
+            # Parse CSV: format bervariasi, coba detect
+            # Filter hanya brand populer dan simpan format: TAC|Brand|Model
+            grep -iE "samsung|xiaomi|redmi|poco|oppo|realme|vivo|oneplus|huawei|infinix|tecno|asus|sony|motorola|nokia|google|pixel" /tmp/tacdb_raw.csv | \
+            awk -F',' '{
+                tac=$1; gsub(/[^0-9]/, "", tac);
+                if(length(tac)==8) print tac"|"$2"|"$3
+            }' | \
+            grep -v "^|" | head -500 > "$TAC_CACHE"
+            
+            TAC_COUNT=$(wc -l < "$TAC_CACHE" 2>/dev/null || echo 0)
+            if [ "$TAC_COUNT" -gt 10 ]; then
+                echo ">>> [TAC] ✓ Downloaded $TAC_COUNT real device TACs!"
+                DOWNLOAD_SUCCESS=true
+                break
+            fi
         fi
-        rm -f /tmp/tacdb_raw.csv
-    else
-        echo ">>> [TAC] Offline mode, menggunakan built-in database..."
-        CACHE_VALID=false
+    done
+    
+    rm -f /tmp/tacdb_raw.csv
+    
+    if [ "$DOWNLOAD_SUCCESS" != true ]; then
+        echo ">>> [TAC] Download gagal, menggunakan built-in database..."
     fi
 fi
 
